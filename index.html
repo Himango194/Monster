@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>怪物 Kaibutsu | 尋找真相的碎片</title>
+    
+    <!-- 外部資源 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 字型與樣式 -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700;900&family=Noto+Sans+TC:wght@300;400;500&display=swap');
+        
+        :root {
+            --bg-color: #050505;
+            --text-main: #e5e7eb;
+            --text-mute: #6b7280;
+            --accent-red: #b91c1c;
+            --accent-soft: #d8b4e2;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        .serif { font-family: 'Noto Serif TC', serif; }
+
+        /* --- 視覺特效 --- */
+        .film-grain::after {
+            content: "";
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-image: url("https://www.transparenttextures.com/patterns/stardust.png");
+            opacity: 0.04;
+            pointer-events: none;
+            z-index: 90;
+        }
+
+        .vignette {
+            background: radial-gradient(circle, transparent 50%, #050505 100%);
+            pointer-events: none;
+        }
+
+        /* --- 導航 --- */
+        .nav-link {
+            position: relative;
+            padding-bottom: 2px;
+            transition: color 0.3s;
+            cursor: pointer;
+        }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; width: 0%; height: 1px;
+            background-color: var(--accent-red);
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover::after { width: 100%; }
+
+        /* --- 影片背景 --- */
+        .video-bg {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            min-width: 100%;
+            min-height: 100%;
+            width: auto;
+            height: auto;
+            transform: translate(-50%, -50%);
+            object-fit: cover;
+            z-index: -1;
+            filter: brightness(0.6) contrast(1.1);
+        }
+
+        /* --- 進場動畫 --- */
+        .fade-up {
+            opacity: 0;
+            transform: translateY(40px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+        }
+        .fade-up.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* --- 音樂波紋 --- */
+        @keyframes equalizer {
+            0% { height: 3px; }
+            50% { height: 12px; }
+            100% { height: 3px; }
+        }
+        .bar {
+            width: 2px;
+            background: white;
+            animation: equalizer 1s infinite ease-in-out;
+        }
+        .bar:nth-child(1) { animation-delay: 0.0s; }
+        .bar:nth-child(2) { animation-delay: 0.2s; }
+        .bar:nth-child(3) { animation-delay: 0.4s; }
+
+        /* --- 瀑布流相簿 --- */
+        .masonry-item {
+            break-inside: avoid;
+            margin-bottom: 1.5rem;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.4s ease;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #111;
+        }
+        .masonry-item:hover {
+            transform: translateY(-5px);
+            z-index: 10;
+            box-shadow: 0 10px 30px -10px rgba(255, 255, 255, 0.1);
+        }
+        .masonry-item img, .masonry-item video {
+            width: 100%;
+            display: block;
+            transition: transform 0.7s ease;
+        }
+        .masonry-item:hover img, .masonry-item:hover video {
+            transform: scale(1.05);
+        }
+
+        /* --- 燈箱 --- */
+        #lightbox {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: rgba(0,0,0,0.95);
+            backdrop-filter: blur(10px);
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        #lightbox.show { opacity: 1; }
+
+        .lb-nav-btn {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255,255,255,0.5);
+            transition: all 0.3s ease;
+            padding: 20px;
+            cursor: pointer;
+            z-index: 2010;
+        }
+        .lb-nav-btn:hover { color: white; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        .lb-prev { left: 20px; }
+        .lb-next { right: 20px; }
+
+        .synopsis-slide {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+        .synopsis-slide.active { opacity: 1; }
+
+        /* 導航連結專屬樣式 */
+        .poi-link {
+            opacity: 0;
+            animation: slideUp 0.8s ease-out forwards;
+        }
+        .poi-link:hover .poi-img {
+            transform: scale(1.05);
+        }
+        .poi-link:hover .poi-overlay {
+            opacity: 0.3;
+        }
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+    </style>
+</head>
+<body class="film-grain">
+
+    <!-- BGM 音源 -->
+    <audio id="bgm" loop crossorigin="anonymous">
+        <source src="https://raw.githubusercontent.com/Himango194/Monster/13dbf54178fefaafd045e7fdfa7ca4029efd45c3/Music/Aqua.mp3" type="audio/mpeg">
+    </audio>
+
+    <!-- 固定導航列 -->
+    <nav class="fixed top-0 w-full z-50 px-8 py-6 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent transition-all duration-300" id="navbar">
+        <div onclick="window.scrollTo({top:0, behavior:'smooth'})" class="cursor-pointer group">
+            <h1 class="serif text-2xl font-black tracking-tighter text-white group-hover:text-[var(--accent-red)] transition-colors">怪物</h1>
+            <p class="text-[8px] tracking-[0.4em] uppercase opacity-40">Kaibutsu</p>
+        </div>
+        <div class="hidden md:flex space-x-12">
+            <a href="#synopsis" class="nav-link text-[10px] tracking-[0.2em] font-bold uppercase text-white/60 hover:text-white">故事大綱</a>
+            <a href="#cast" class="nav-link text-[10px] tracking-[0.2em] font-bold uppercase text-white/60 hover:text-white">演員陣容</a>
+            <a href="#locations" class="nav-link text-[10px] tracking-[0.2em] font-bold uppercase text-white/60 hover:text-white">聖地巡禮</a>
+            <a href="#gallery" class="nav-link text-[10px] tracking-[0.2em] font-bold uppercase text-white/60 hover:text-white">記憶殘像</a>
+        </div>
+    </nav>
+
+    <!-- 右下角音樂控制 -->
+    <div class="fixed bottom-8 right-8 z-50">
+        <button onclick="toggleMusic()" class="flex items-center gap-3 bg-white/5 hover:bg-white/10 backdrop-blur-md px-5 py-3 rounded-full border border-white/10 transition-all shadow-2xl group">
+            <div id="music-visual" class="hidden flex items-end gap-1 h-3">
+                <span class="bar h-2"></span><span class="bar h-4"></span><span class="bar h-1"></span>
+            </div>
+            <i id="music-icon" data-lucide="music" class="w-3 h-3 text-white/50 group-hover:text-white transition-colors"></i>
+            <span class="text-[9px] tracking-widest text-white/80 uppercase group-hover:text-white">Sakamoto - Aqua</span>
+        </button>
+    </div>
+
+    <!-- 燈箱 -->
+    <div id="lightbox" onclick="closeLightbox()">
+        <button class="absolute top-8 right-8 text-white/50 hover:text-white transition-colors z-[2010]">
+            <i data-lucide="x" class="w-10 h-10"></i>
+        </button>
+        <div class="lb-nav-btn lb-prev" onclick="navigateLightbox(-1, event)"><i data-lucide="chevron-left" class="w-12 h-12"></i></div>
+        <div class="lb-nav-btn lb-next" onclick="navigateLightbox(1, event)"><i data-lucide="chevron-right" class="w-12 h-12"></i></div>
+        <div id="lb-content" class="max-w-6xl w-full px-4 flex justify-center items-center h-full" onclick="event.stopPropagation()">
+            <!-- 內容動態插入 -->
+        </div>
+    </div>
+
+    <!-- HERO SECTION -->
+    <header class="relative h-screen flex items-center justify-center overflow-hidden">
+        <div class="absolute inset-0 z-0 overflow-hidden">
+            <video class="video-bg" autoplay muted loop playsinline poster="https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&q=80&w=2000">
+                <source src="https://raw.githubusercontent.com/Himango194/Monster/main/Video/V01.mp4" type="video/mp4">
+            </video>
+            <div class="absolute inset-0 bg-black/30"></div>
+            <div class="absolute inset-0 vignette"></div>
+        </div>
+
+        <div class="relative z-10 text-center px-4 space-y-8 fade-up title-wrapper">
+            <div class="inline-block border border-white/20 px-4 py-1 rounded-full mb-4 backdrop-blur-sm">
+                <p class="text-[9px] tracking-[0.3em] uppercase text-white/80">Directed by Hirokazu Kore-eda</p>
+            </div>
+            <h1 class="serif text-7xl md:text-9xl font-black text-white tracking-tighter drop-shadow-lg">
+                誰是<span class="text-[var(--accent-red)]">怪物</span>？
+            </h1>
+            <p class="serif italic text-white/80 text-sm md:text-lg mt-8 tracking-[0.1em]">
+                「只有某些人才能擁有的，不叫幸福。只有任何人都能擁有的，才叫幸福。」
+            </p>
+            <div class="pt-10">
+                <a href="#synopsis" class="inline-flex flex-col items-center opacity-50 hover:opacity-100 transition-opacity duration-500">
+                    <span class="text-[9px] tracking-[0.2em] uppercase mb-2">Scroll Down</span>
+                    <i data-lucide="chevron-down" class="w-5 h-5 animate-bounce"></i>
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-6xl mx-auto px-8 pb-32 space-y-32">
+
+        <!-- 1. 故事大綱 -->
+        <section id="synopsis" class="pt-32 grid grid-cols-1 md:grid-cols-2 gap-20 items-center fade-up">
+            <div class="space-y-8">
+                <div class="flex items-center gap-4">
+                    <div class="h-[1px] w-12 bg-[var(--accent-red)]"></div>
+                    <span class="text-xs tracking-[0.3em] uppercase text-white/40">Synopsis</span>
+                </div>
+                <h2 class="serif text-4xl font-bold text-white leading-tight">視角的迷宮<br><span class="text-white/40 text-2xl">真相的碎片</span></h2>
+                <div class="space-y-6 text-sm text-white/60 leading-8 text-justify">
+                    <p>
+                        平靜的湖畔小鎮，一場突如其來的大火燒毀了寧靜。單親母親麥野早織發現兒子湊的行為日漸怪異——他在夜裡喃喃自語、剪掉頭髮，甚至聲稱自己被班導師保利體罰。愛子心切的早織衝進學校討公道，卻面對著校方機械式的道歉與老師閃爍其詞的態度。
+                    </p>
+                    <p>
+                        然而，這只是故事的一面。當敘事視角轉換，被貼上「體罰教師」標籤的保利，眼中的世界截然不同；而被視為受害者的孩子們，在大人看不見的角落裡，正編織著屬於他們的秘密宇宙。
+                    </p>
+                    <p class="text-white/40 italic">
+                        是枝裕和與坂元裕二聯手，透過精巧的三段式結構，層層剝開謊言與誤解。在那個被遺忘的廢墟電車裡，兩個渴望被理解的靈魂，正在等待風暴過去。
+                    </p>
+                </div>
+            </div>
+            
+            <div class="relative group h-96 rounded-lg overflow-hidden shadow-2xl">
+                <img src="https://hips.hearstapps.com/hmg-prod/images/%E6%88%AA%E5%9C%96-2023-06-07-%E4%B8%8B%E5%8D%885-22-21-64804d14e6be5.png" class="synopsis-slide active">
+                <img src="https://www.ahamomenthk.com/wp-content/uploads/2023/07/%E6%80%AA%E7%89%A9-%E6%96%B0%E8%81%9E%E7%A8%BF%E5%8A%87%E7%85%A701-1-648047b6f3c11.jpeg" class="synopsis-slide">
+                <img src="https://images.vocus.cc/21058690-775a-4df5-a7cc-964d459f902f.jpg" class="synopsis-slide">
+                <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+            </div>
+        </section>
+
+        <!-- 2. 導演與編劇 -->
+        <section class="border-t border-white/10 pt-20 fade-up">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
+                <a href="https://zh.wikipedia.org/wiki/%E6%98%AF%E6%9E%9D%E8%A3%95%E5%92%8C" target="_blank" class="relative h-96 rounded-lg overflow-hidden group order-2 md:order-1 cursor-pointer block">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/4/40/%E6%98%AF%E6%9E%9D%E8%A3%95%E5%92%8C_2025.jpg/566px-%E6%98%AF%E6%9E%9D%E8%A3%95%E5%92%8C_2025.jpg" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" alt="Koreeda">
+                    <div class="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors"></div>
+                    <div class="absolute bottom-6 left-6">
+                        <p class="text-[9px] tracking-[0.3em] uppercase text-[var(--accent-red)] mb-1">Director</p>
+                        <h4 class="serif text-2xl font-bold text-white">是枝 裕和</h4>
+                    </div>
+                </a>
+                <div class="space-y-8 order-1 md:order-2">
+                    <div>
+                        <h3 class="serif text-3xl font-bold mb-2">掌鏡者</h3>
+                        <p class="text-[9px] tracking-[0.4em] uppercase text-white/30">The Visionary</p>
+                    </div>
+                    <p class="text-sm text-white/60 leading-relaxed font-light italic border-l-2 border-[var(--accent-red)] pl-4">
+                        「我不喜歡用黑白分明的方式來描繪世界。」
+                    </p>
+                    <p class="text-sm text-white/60 leading-relaxed font-light">
+                        在《怪物》中，是枝裕和首次與編劇坂元裕二合作，並邀請傳奇音樂家坂本龍一配樂。他收斂了以往溫情的家庭視角，轉而以冷靜、甚至近乎驚悚的筆觸，層層剝開隱藏在日常之下的偏見與謊言。
+                    </p>
+                    <a href="https://zh.wikipedia.org/wiki/%E6%98%AF%E6%9E%9D%E8%A3%95%E5%92%8C" target="_blank" class="inline-flex items-center text-[10px] tracking-[0.2em] uppercase text-white hover:text-[var(--accent-red)] transition-colors mt-2">
+                        Wiki Profile <i data-lucide="arrow-up-right" class="w-3 h-3 ml-2"></i>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. 演員陣容 -->
+        <section id="cast" class="border-t border-white/10 pt-20 fade-up">
+            <div class="mb-12 text-center">
+                <h3 class="serif text-3xl font-bold text-white mb-4">靈魂人物</h3>
+                <p class="text-[9px] tracking-[0.4em] uppercase text-white/30">Cast & Crew</p>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                <!-- Actor 1 -->
+                <a href="https://zh.wikipedia.org/wiki/%E9%BB%91%E5%B7%9D%E6%83%B3%E7%9F%A2" target="_blank" class="group block">
+                    <div class="aspect-[3/4] overflow-hidden rounded-lg mb-4 bg-white/5">
+                        <img src="https://i.meee.com.tw/dGuXJRy.webp" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Soya">
+                    </div>
+                    <div class="text-center">
+                        <h4 class="serif font-bold text-white group-hover:text-[var(--accent-red)] transition-colors">黑川想矢</h4>
+                        <p class="text-[10px] text-white/40 mt-1 uppercase tracking-wider">as Minato</p>
+                    </div>
+                </a>
+                <!-- Actor 2 -->
+                <a href="https://zh.wikipedia.org/zh-tw/%E6%9F%8A%E6%9C%A8%E9%98%B3%E5%A4%AA" target="_blank" class="group block">
+                    <div class="aspect-[3/4] overflow-hidden rounded-lg mb-4 bg-white/5">
+                        <img src="https://cdn.stardust.co.jp/wp-content/uploads/2024/08/2d6450a063b2b4bbd3fbad9f2a1941b3-368x550.jpg" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Hinata">
+                    </div>
+                    <div class="text-center">
+                        <h4 class="serif font-bold text-white group-hover:text-[var(--accent-red)] transition-colors">柊木陽太</h4>
+                        <p class="text-xs text-white/40 mt-1 uppercase tracking-wider">as Yori</p>
+                    </div>
+                </a>
+                <!-- Actor 3 -->
+                <a href="https://zh.wikipedia.org/wiki/%E5%AE%89%E8%97%A4%E6%AB%BB" target="_blank" class="group block">
+                    <div class="aspect-[3/4] overflow-hidden rounded-lg mb-4 relative bg-white/5">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/3d/Ando_Sakura_at_Opening_Ceremony_of_the_Tokyo_International_Film_Festival_2017_%2828423650439%29.jpg" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Sakura">
+                    </div>
+                    <div class="text-center">
+                        <h4 class="serif font-bold text-white group-hover:text-[var(--accent-red)] transition-colors">安藤 櫻</h4>
+                        <p class="text-xs text-white/40 mt-1 uppercase tracking-wider">as Saori</p>
+                    </div>
+                </a>
+                <!-- Actor 4 -->
+                <a href="https://zh.wikipedia.org/wiki/%E6%B0%B8%E5%B1%B1%E7%91%9B%E5%A4%AA" target="_blank" class="group block">
+                    <div class="aspect-[3/4] overflow-hidden rounded-lg mb-4 relative bg-white/5">
+                        <img src="https://ogre.natalie.mu/artist/38721/20200519/nagayamaeita_art_20200519.jpg?imwidth=400&imdensity=1" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" alt="Eita">
+                    </div>
+                    <div class="text-center">
+                        <h4 class="serif font-bold text-white group-hover:text-[var(--accent-red)] transition-colors">永山 瑛太</h4>
+                        <p class="text-xs text-white/40">飾 保利 道敏</p>
+                    </div>
+                </a>
+            </div>
+        </section>
+
+        <!-- 4. 聖地巡禮 (修復版：更新穩定圖源與連結) -->
+        <section id="locations" class="py-32 px-8 bg-[#0d0f12] -mx-8">
+            <div class="max-w-6xl mx-auto">
+                <div class="text-center mb-16 fade-up">
+                    <h3 class="serif text-3xl font-bold text-white mb-4">聖地巡禮</h3>
+                    <p class="text-[9px] tracking-[0.4em] uppercase text-white/30">Nagano Prefecture</p>
+                </div>
+                <!-- 容器 ID "grid" 必須存在 -->
+                <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <!-- 由 JS 渲染 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. 記憶殘像 -->
+        <section id="gallery" class="py-32 px-8 border-t border-white/5">
+            <div class="text-center mb-16 fade-up">
+                <h2 class="serif text-4xl font-bold mb-4">記憶殘像</h2>
+                <div class="h-[1px] w-12 bg-white/20 mx-auto mb-4"></div>
+                <p class="text-[9px] tracking-[0.5em] text-white/30 uppercase">Fragments Archive</p>
+            </div>
+            <div class="columns-1 md:columns-2 lg:columns-3 gap-8 space-y-8" id="album-container"></div>
+        </section>
+
+    </div>
+
+    <footer class="py-24 border-t border-white/5 text-center bg-[#050505]">
+        <p class="serif text-white/30 text-xs tracking-widest mb-6">「如果重新投胎，我們會變成什麼？」</p>
+        <div class="flex justify-center space-x-6 mb-8 text-white/20">
+            <i class="fa-brands fa-instagram hover:text-white cursor-pointer transition"></i>
+            <i class="fa-brands fa-twitter hover:text-white cursor-pointer transition"></i>
+        </div>
+        <p class="text-[8px] tracking-[0.3em] text-white/10 mt-6 uppercase">© 2026 Kaibutsu Fan Site</p>
+    </footer>
+
+    <script>
+        // --- 核心資料 (聖地巡禮 - 使用穩定圖源) ---
+        const poiData = [
+            { 
+                id: 1, name: "舊瀨澤隧道", cat: "scene", 
+                // 隧道 (Tunnel) - 象徵秘密基地入口
+                img: "https://images.unsplash.com/photo-1477346611705-65d1883cee1e?auto=format&fit=crop&q=80&w=600", 
+                desc: "通往秘密基地的唯一入口。", tip: "Google Map 導航", label: "關鍵點",
+                mapUrl: "https://www.google.com/maps/search/?api=1&query=舊瀨澤隧道+富士見町" 
+            },
+            { 
+                id: 2, name: "諏訪湖間欠泉中心", cat: "exhibit", 
+                // 湖畔/建築 (Lake/Center) - 象徵公共場所
+                img: "https://images.unsplash.com/photo-1499591934245-40b55745b905?auto=format&fit=crop&q=80&w=600", 
+                desc: "冬季特別企劃展，展出電影道具。", tip: "Google Map 導航", label: "特別展覽",
+                mapUrl: "https://www.google.com/maps/search/?api=1&query=諏訪湖間欠泉中心" 
+            },
+            { 
+                id: 3, name: "舊城北小學校", cat: "scene", 
+                // 學校走廊 (School) - 象徵壓抑
+                img: "https://images.unsplash.com/photo-1596495577886-d920f1fb7238?auto=format&fit=crop&q=80&w=600", 
+                desc: "電影中校園場景的主體。", tip: "Google Map 導航", label: "場景",
+                mapUrl: "https://www.google.com/maps/search/?api=1&query=舊諏訪市立城北小學校" 
+            },
+            { 
+                id: 5, name: "立石公園", cat: "scene", 
+                // 俯瞰/全景 (View) - 象徵全局視角
+                img: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=600", 
+                desc: "俯瞰諏訪湖全景的最佳地點。", tip: "Google Map 導航", label: "必去",
+                mapUrl: "https://www.google.com/maps/search/?api=1&query=立石公園+諏訪市" 
+            }
+        ];
+
+        // --- 相簿資料 ---
+        const albumData = [
+            { type: 'video', url: 'https://raw.githubusercontent.com/Himango194/Monster/main/Video/V01.mp4', caption: '真相就像湖水，從不同的岸邊看過去，倒影完全不同。' },
+            { type: 'video', url: 'https://raw.githubusercontent.com/Himango194/Monster/main/Video/V02.mp4', caption: '「怪物是誰？」當我們指著別人的時候，或許自己也正在長出觸角。' },
+            { type: 'video', url: 'https://raw.githubusercontent.com/Himango194/Monster/main/Video/V03.mp4', caption: '如果這個世界不夠溫柔，那我們就逃往星空軌道的盡頭。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a01.jpg?raw=true', caption: '在那個生鏽的車廂裡，我們擁有了全世界。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a02.jpg?raw=true', caption: '那些在黑暗中交換的耳語，是我們對抗平庸的唯一武器。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a03.jpg?raw=true', caption: '我們在淤泥中屏住呼吸，等待著那場能洗淨一切的大雨。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a04.jpg?raw=true', caption: '「豬腦」不是貶義詞，是我們之間不需要翻譯的頻率。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a05.jpg?raw=true', caption: '欄杆的那一頭，是我們從未見過的、沒有偏見的黎明。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a06.jpg?raw=true', caption: '陽光穿透森林的那一刻，我終於聽見了星際的聲音。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a07.jpg?raw=true', caption: '記憶的碎片，在時光裡閃閃發亮。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a08.jpg?raw=true', caption: '就算大雨滂沱，只要一直跑下去，總能抵達目的地。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a09.jpg?raw=true', caption: '原來，我們一直都是自由的。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a11.jpg?raw=true', caption: '誰才是真正的怪物？' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a12.jpg?raw=true', caption: '偏見是刀，溫柔是藥。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a13.jpg?raw=true', caption: '終點之後，我們重生。' },
+            { type: 'image', url: 'https://github.com/Himango194/Monster/blob/main/Photo/yori&minato/a14.jpg?raw=true', caption: '這就是我們的幸福。' }
+        ];
+
+        let currentLightboxIndex = 0;
+
+        function renderGallery() {
+            const container = document.getElementById('album-container');
+            container.innerHTML = '';
+            albumData.forEach((item, index) => {
+                const card = document.createElement('div');
+                card.className = 'masonry-item group fade-up relative';
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.onclick = () => openLightbox(index);
+                
+                let mediaElement = '';
+                if (item.type === 'video') {
+                    mediaElement = `
+                        <div class="relative">
+                            <video src="${item.url}" muted loop autoplay playsinline class="w-full"></video>
+                            <div class="absolute top-3 right-3 opacity-60"><i data-lucide="play" class="w-4 h-4 text-white"></i></div>
+                        </div>`;
+                } else {
+                    mediaElement = `<img src="${item.url}" class="w-full object-cover">`;
+                }
+
+                card.innerHTML = `
+                    ${mediaElement}
+                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-6 text-center">
+                        <p class="serif text-white text-xs leading-relaxed transform translate-y-4 group-hover:translate-y-0 transition-transform">${item.caption}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            lucide.createIcons();
+        }
+
+        // 渲染景點 (修正版)
+        function renderPois(filter = 'all') {
+            const grid = document.getElementById('grid');
+            if (!grid) return; // 防呆
+            grid.innerHTML = '';
+            
+            const filtered = filter === 'all' ? poiData : poiData.filter(p => p.cat === filter);
+            filtered.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.innerHTML = `
+                    <a href="${p.mapUrl}" target="_blank" rel="noopener noreferrer" class="poi-link block relative h-64 rounded-2xl overflow-hidden mb-4 shadow-sm group">
+                        <img src="${p.img}" class="poi-img w-full h-full object-cover transition-transform duration-700" alt="${p.name}" onerror="this.src='https://via.placeholder.com/600x400?text=Location';">
+                        <div class="poi-overlay absolute inset-0 bg-black opacity-40 transition-opacity duration-300"></div>
+                        <div class="absolute top-4 left-4 glass px-3 py-1 rounded-full text-[10px] font-bold tracking-widest uppercase bg-white/10 backdrop-blur-md border border-white/20">
+                            ${p.label}
+                        </div>
+                        <div class="absolute bottom-0 left-0 w-full p-6 bg-gradient-to-t from-black/90 to-transparent pt-12">
+                            <h4 class="serif text-xl font-bold text-white mb-1 group-hover:text-[var(--accent-red)] transition-colors">${p.name}</h4>
+                            <p class="text-white/60 text-xs font-light">${p.desc}</p>
+                            <div class="mt-3 flex items-center text-[10px] text-white/40 tracking-widest uppercase group-hover:text-white transition-colors">
+                                <i data-lucide="map-pin" class="w-3 h-3 mr-2"></i>
+                                ${p.tip}
+                            </div>
+                        </div>
+                    </a>
+                `;
+                // 手動控制 fade-up，因為 innerHTML 重繪後元素是新的
+                div.classList.add('fade-up');
+                div.style.animationDelay = `${i * 0.1}s`;
+                grid.appendChild(div);
+            });
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            
+            // 重新綁定觀察器 (因為元素是新生成的)
+            initScrollAnimations();
+        }
+
+        // 燈箱邏輯
+        function openLightbox(index) {
+            currentLightboxIndex = index;
+            const lb = document.getElementById('lightbox');
+            lb.style.display = 'flex';
+            setTimeout(() => lb.classList.add('show'), 10);
+            updateLightboxContent();
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLightbox() {
+            const lb = document.getElementById('lightbox');
+            lb.classList.remove('show');
+            setTimeout(() => { lb.style.display = 'none'; document.body.style.overflow = 'auto'; }, 300);
+            const container = document.getElementById('lb-content');
+            const video = container.querySelector('video');
+            if(video) video.pause();
+        }
+
+        function updateLightboxContent() {
+            const item = albumData[currentLightboxIndex];
+            const container = document.getElementById('lb-content');
+            container.innerHTML = '';
+            if (item.type === 'video') {
+                container.innerHTML = `<video src="${item.url}" controls autoplay class="max-h-[85vh] max-w-full shadow-2xl rounded-sm"></video>`;
+            } else {
+                container.innerHTML = `<img src="${item.url}" class="max-h-[85vh] max-w-full object-contain shadow-2xl rounded-sm">`;
+            }
+        }
+
+        function navigateLightbox(dir, e) {
+            e.stopPropagation();
+            currentLightboxIndex = (currentLightboxIndex + dir + albumData.length) % albumData.length;
+            updateLightboxContent();
+        }
+
+        function toggleMusic() {
+            const audio = document.getElementById('bgm');
+            const visual = document.getElementById('music-visual');
+            const icon = document.getElementById('music-icon');
+            if (audio.paused) {
+                audio.play(); visual.classList.remove('hidden'); icon.classList.add('hidden');
+            } else {
+                audio.pause(); visual.classList.add('hidden'); icon.classList.remove('hidden');
+            }
+        }
+
+        function initScrollAnimations() {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add('visible'); });
+            }, { threshold: 0.1 });
+            document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+        }
+
+        function initSynopsisSlides() {
+            const slides = document.querySelectorAll('.synopsis-slide');
+            let current = 0;
+            if (slides.length === 0) return;
+            setInterval(() => {
+                slides[current].classList.remove('active');
+                current = (current + 1) % slides.length;
+                slides[current].classList.add('active');
+            }, 4000);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            renderGallery();
+            renderPois(); // 確保初次載入
+            initScrollAnimations();
+            initSynopsisSlides();
+
+            const audio = document.getElementById('bgm');
+            document.addEventListener('click', () => {
+                if (audio.paused) audio.play().then(() => {
+                    document.getElementById('music-visual').classList.remove('hidden');
+                    document.getElementById('music-icon').classList.add('hidden');
+                }).catch(() => {});
+            }, { once: true });
+        });
+    </script>
+</body>
+</html>
